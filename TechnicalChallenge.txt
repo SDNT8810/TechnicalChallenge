@@ -1,0 +1,35 @@
+Technical Challenge: Autonomous Robot Logging with ROS 
+Overview
+Your task is to design and implement an experiment using ROS 2 where a simulated mobile robot autonomously navigates an environment and records key operational data. This data must be visualized, and selected events must also be recorded on a blockchain.
+Objectives
+    1. ROS Functionality
+    • Use ROS 2 with Gazebo to simulate a mobile robot.
+    • Implement autonomous navigation using a pre-defined map.
+    • Record robot state data including:
+        ◦ Timestamps
+        ◦ Position coordinates (x, y)
+        ◦ Status messages
+    2. Experimental Design and Data Handling
+    • Define a clear goal for the mobile robot. Please note that defining a single clear goal from the examples is sufficient. For example:
+        ◦ Autonomously navigating three waypoints
+        ◦ Completing an autonomous navigation loop around and indoor area
+        ◦ Avoid obstacles and arrive at destination
+    • Record relevant data during the experiment.
+    • Use a clear methodology to describe the experiment and the expected behavior.
+    3. Visualization
+    • Plot figures that will elaborate on robot behavior and can confirm that the goal has been executed.
+    4. Blockchain
+    • Install and run Ganache to simulate a local Ethereum blockchain.
+    • Write a simple Python script using web3.py to send transactions to Ganache.
+    • Each time the robot executes the defined goal, submit a transaction that includes:
+        ◦ A timestamp
+        ◦ The robot’s position
+        ◦ A brief status message (e.g. “Reached waypoint 2”)
+    • Store this data in a smart contract or send it as a transaction payload.
+Evaluation Criteria
+The resultant code will be uploaded to a public GitHub repository. Together with the code a brief description of the experiment should be included. The evaluation criteria of this technical challenge will consider the following topics:
+    • ROS navigation and system architecture
+    • Experiment design and reproducibility
+    • Logging, data collection and visualization
+    • Blockchain setup and web3 integration
+    • Possible improvements for future work
