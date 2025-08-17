@@ -15,10 +15,9 @@ from nav2_common.launch import ReplaceString, RewrittenYaml
 def generate_launch_description():
     pkg_name = 'sdnt_robot_description'
     pkg_share = launch_ros.substitutions.FindPackageShare(package='sdnt_robot_description').find('sdnt_robot_description')
-    # set_tb3_model = SetEnvironmentVariable('TURTLEBOT3_MODEL', LaunchConfiguration('tb3_model'))
-    # tb3_desc_pkg = get_package_share_directory('turtlebot3_description')
-    # default_model_path = os.path.join(tb3_desc_pkg, 'urdf/turtlebot3_waffle_pi.urdf')
-    default_model_path = os.path.join(pkg_share, 'src/description/sdnt_robot_description.urdf')
+    set_tb3_model = SetEnvironmentVariable('TURTLEBOT3_MODEL', LaunchConfiguration('tb3_model'))
+    tb3_desc_pkg = get_package_share_directory('turtlebot3_description')
+    default_model_path = os.path.join(tb3_desc_pkg, 'urdf/turtlebot3_waffle_pi.urdf')
 
     default_rviz_config_path = os.path.join(pkg_share, 'rviz/display.rviz')
     world_path=os.path.join(pkg_share, 'world/warehouse.world')
@@ -27,7 +26,15 @@ def generate_launch_description():
     robot_state_publisher_node = launch_ros.actions.Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
-        parameters=[{'robot_description': Command(['xacro ', LaunchConfiguration('model')])}, {'use_sim_time': LaunchConfiguration('use_sim_time')}]
+        name='robot_state_publisher',
+        output='screen',
+        parameters=[{
+            'use_sim_time': LaunchConfiguration('use_sim_time'),
+            'robot_description': Command([
+                'xacro ', os.path.join(tb3_desc_pkg, 'urdf', 'turtlebot3_waffle_pi.urdf'),
+                ' namespace:=', ''
+            ])
+        }]
     )
     joint_state_publisher_node = launch_ros.actions.Node(
         package='joint_state_publisher',
@@ -47,7 +54,7 @@ def generate_launch_description():
     spawn_entity = launch_ros.actions.Node(
     	package='gazebo_ros', 
     	executable='spawn_entity.py',
-        arguments=['-entity', 'sdnt_robot', '-topic', 'robot_description', '-x', '0', '-y', '0', '-z', '0.18'],
+        arguments=['-entity', 'sdnt_robot', '-topic', 'robot_description'],
         output='screen'
     )
     spawn_tb3 = launch_ros.actions.Node(
@@ -63,60 +70,33 @@ def generate_launch_description():
          output='screen',
          parameters=[os.path.join(pkg_share, 'config/ekf.yaml'), {'use_sim_time': LaunchConfiguration('use_sim_time')}]
     )
-    map_server_node = LifecycleNode(
-        package='nav2_map_server',
-        executable='map_server',
-        name='map_server',
-        namespace='',
-        parameters=[
-            {'use_sim_time': True},
-            {'yaml_filename': map_path}
-        ],
-        output='screen'
-    )
+    # Use proper Nav2 localization and navigation launch structure like in simulation.launch.py
     bringup_dir = get_package_share_directory('nav2_bringup')
     configured_params = RewrittenYaml(
             source_file=os.path.join(get_package_share_directory(pkg_name), 'config/nav2_params.yaml'), root_key="", param_rewrites="", convert_types=True
         )
-    nav_node = IncludeLaunchDescription(
+    
+    localization = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(bringup_dir, "launch", "navigation_launch.py")
+            os.path.join(bringup_dir, 'launch', 'localization_launch.py')
         ),
         launch_arguments={
-            "use_sim_time": "True",
-            "params_file": configured_params,
-            "autostart": "True",
-            "map": map_path,
-            "slam": "False",   
-        }.items(),
+            'use_sim_time': 'True',
+            'map': map_path,
+            'params_file': configured_params
+        }.items()
     )
 
-    # Localization (AMCL)
-    amcl_node = LifecycleNode(
-        package='nav2_amcl',
-        executable='amcl',
-        name='amcl',
-        output='screen',
-        namespace='',
-        parameters=[
-            {'use_sim_time': True},
-            {'base_frame_id': 'base_link'},
-            {'odom_frame_id': 'odom'},
-            {'global_frame_id': 'map'},
-            {'scan_topic': '/scan'}
-        ]
+    navigation = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(bringup_dir, 'launch', 'navigation_launch.py')
+        ),
+        launch_arguments={
+            'use_sim_time': 'True',
+            'params_file': configured_params
+        }.items()
     )
-    nav2_lifecycle_manager = launch_ros.actions.Node(
-        package='nav2_lifecycle_manager',
-        executable='lifecycle_manager',
-        name='lifecycle_manager_map',
-        output='screen',
-        parameters=[
-            {'use_sim_time': True},
-            {'autostart': True},  # Automatically transition nodes
-            {'node_names': ['map_server']}  # Nodes to manage
-        ]
-    )
+
     static_transform_publisher_map2odom = launch_ros.actions.Node(
             package='tf2_ros',
             executable='static_transform_publisher',
@@ -133,18 +113,18 @@ def generate_launch_description():
                                             description='Absolute path to rviz config file'),
         launch.actions.DeclareLaunchArgument(name='use_sim_time', default_value='True',
                                             description='Flag to enable use_sim_time'),
+        launch.actions.DeclareLaunchArgument(name='tb3_model', default_value='waffle_pi',
+                                            description='TurtleBot3 model type'),
         launch.actions.DeclareLaunchArgument(name='map', default_value=os.path.join(pkg_share, 'maps/warehouse.yaml'),
                                             description='Absolute path to map file'),
+        set_tb3_model,
         launch.actions.ExecuteProcess(cmd=['gzserver', '--verbose', '-s', 'libgazebo_ros_init.so', '-s', 'libgazebo_ros_factory.so', world_path], output='screen'),
         robot_state_publisher_node,
         joint_state_publisher_node,
-        spawn_entity,
-        # spawn_tb3,
+        spawn_tb3,
         robot_localization_node,
         static_transform_publisher_map2odom,
-        nav_node,
+        localization,
+        navigation,
         rviz_node,
-        amcl_node,
-        map_server_node,
-        nav2_lifecycle_manager,
     ])
