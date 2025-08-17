@@ -15,6 +15,6 @@ colcon build
 
 . install/setup.bash
 
-ros2 launch sdnt_robot_description display.launch.py
+ros2 launch sdnt_robot_simulation display.launch.py
 
 # ros2 launch tb3_nav2 simulation.launch.py 

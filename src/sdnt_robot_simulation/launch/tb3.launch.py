@@ -13,8 +13,8 @@ from launch.substitutions import PathJoinSubstitution
 from nav2_common.launch import ReplaceString, RewrittenYaml
 
 def generate_launch_description():
-    pkg_name = 'sdnt_robot_description'
-    pkg_share = launch_ros.substitutions.FindPackageShare(package='sdnt_robot_description').find('sdnt_robot_description')
+    pkg_name = 'sdnt_robot_simulation'
+    pkg_share = launch_ros.substitutions.FindPackageShare(package='sdnt_robot_simulation').find('sdnt_robot_simulation')
     set_tb3_model = SetEnvironmentVariable('TURTLEBOT3_MODEL', LaunchConfiguration('tb3_model'))
     tb3_desc_pkg = get_package_share_directory('turtlebot3_description')
     default_model_path = os.path.join(tb3_desc_pkg, 'urdf/turtlebot3_waffle_pi.urdf')
