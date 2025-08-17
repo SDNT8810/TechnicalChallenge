@@ -4,6 +4,7 @@ from rclpy.node import Node
 from rclpy.action import ActionClient
 from nav2_msgs.action import NavigateToPose
 from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
+from std_msgs.msg import String
 
 CSV_RELATIVE_PATH = 'src/follow_waypoints_pkg/resource/odom_waypoints.csv'
 
@@ -11,13 +12,20 @@ class OdomWaypointNavigator(Node):
     """Minimal node: load CSV waypoints, send sequentially, then exit."""
     def __init__(self):
         super().__init__('odom_waypoint_navigator')
+        # Action client for Nav2 NavigateToPose
         self._client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
+        # Status publisher
+        self._status_pub = self.create_publisher(String, '/nav2_status', 10)
+        self._current_status = None
+        # Load waypoints from CSV
         self.waypoints = self._load_waypoints()
         # Current robot position (x,y) updated from localization
         self._xy = None
         self._position_tolerance = 0.20  # meters
         # Subscribe to amcl pose (change to '/odom' if needed)
         self.create_subscription(PoseWithCovarianceStamped, '/amcl_pose', self._pose_cb, 10)
+        # Publish initial status
+        self._publish_status('waitin')
 
     def _load_waypoints(self):
         waypoints = []
@@ -46,7 +54,13 @@ class OdomWaypointNavigator(Node):
         if not self._client.wait_for_server(timeout_sec=10.0):
             self.get_logger().error('navigate_to_pose action server not available.')
             return
+        total = len(self.waypoints)
+        if total == 0:
+            self._publish_status('waitin')
+            return
         for i, wp in enumerate(self.waypoints, start=1):
+            # New goal about to be sent
+            self._publish_status('get target')
             goal = NavigateToPose.Goal()
             wp.header.stamp = self.get_clock().now().to_msg()
             goal.pose = wp
@@ -56,14 +70,22 @@ class OdomWaypointNavigator(Node):
             handle = send_future.result()
             if not handle or not handle.accepted:
                 self.get_logger().error(f'Waypoint {i} rejected, stopping.')
+                self._publish_status('waitin')
                 return
             result_future = handle.get_result_async()
             # Monitor distance; advance early once within tolerance
             while True:
                 rclpy.spin_once(self, timeout_sec=0.1)
+                # Publish moving while processing goal
+                self._publish_status('moving')
                 # If goal finished normally, accept and move on
                 if result_future.done():
                     self.get_logger().info(f'Waypoint {i} reached (action success).')
+                    # Waypoint reached
+                    if i == total:
+                        self._publish_status('reached target')
+                    else:
+                        self._publish_status('waitin')
                     break
                 if self._xy is not None:
                     dx = wp.pose.position.x - self._xy[0]
@@ -78,11 +100,23 @@ class OdomWaypointNavigator(Node):
                         # small grace period
                         for _ in range(5):
                             rclpy.spin_once(self, timeout_sec=0.05)
+                        if i == total:
+                            self._publish_status('reached target')
+                        else:
+                            self._publish_status('waitin')
                         break
         self.get_logger().info('All waypoints completed. Node will shut down.')
 
     def _pose_cb(self, msg: PoseWithCovarianceStamped):
         self._xy = (msg.pose.pose.position.x, msg.pose.pose.position.y)
+
+    def _publish_status(self, status: str):
+        if status != self._current_status:
+            self._current_status = status
+            msg = String()
+            msg.data = status
+            self._status_pub.publish(msg)
+            self.get_logger().info(f'Status: {status}')
 
 def main(args=None):
     rclpy.init(args=args)
