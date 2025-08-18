@@ -2,6 +2,13 @@
 
 ROS 2 Humble + Nav2 + Gazebo simulation of a robot that visits a small list of waypoints. Position + simple status string are written to a local Ganache blockchain (self transactions carrying JSON). A script later walks the chain and rebuilds a JSON log.
 
+### Demo Video
+`demo.webm` (recorded run):
+<video src="records/demo.webm" controls loop muted style="max-width:100%;height:auto;">
+Your browser does not support the video tag.
+</video>
+
+
 ## Main Pieces
 | Area | File / Path | Purpose |
 |------|-------------|---------|
@@ -10,7 +17,9 @@ ROS 2 Humble + Nav2 + Gazebo simulation of a robot that visits a small list of 
 | URDF | `src/sdnt_robot_simulation/src/description/sdnt_robot_description.urdf` | Robot description used for spawn_entity |
 | World | `src/sdnt_robot_simulation/world/warehouse.world` | Gazebo world loaded by `gzserver` |
 | Map | `src/sdnt_robot_simulation/maps/warehouse.yaml` (+ pgm) | 2D map for Nav2 global planning |
-| Waypoint follower | `src/follow_waypoints_pkg/follow_waypoints_pkg/odom_follower.py` | Sends Nav2 `navigate_to_pose` goals from CSV |
+| Waypoint follower (sequential) | `src/follow_waypoints_pkg/follow_waypoints_pkg/odom_follower.py` | Sequential `navigate_to_pose` goals with early distance-based completion + status publishing |
+| Waypoint follower (batch) | `src/follow_waypoints_pkg/follow_waypoints_pkg/go_through_poses.py` | Single `navigate_through_poses` goal containing all waypoints |
+| Waypoint follower (gps prototype) | `src/follow_waypoints_pkg/follow_waypoints_pkg/gps_follower.py` | Sequential `navigate_to_pose` goals from lat/long CSV (simple scaling) |
 | Waypoints CSV | `src/follow_waypoints_pkg/resource/odom_waypoints.csv` | 3 waypoints (see below) |
 | Logger | `Tools/blockchain_logger.py` | Subscribes `/odom` + `/nav2_status`, logs on move/status change |
 | Extractor | `Tools/extract_blockchain_data.py` | Scans blocks, decodes movement tx payloads |
@@ -20,19 +29,25 @@ ROS 2 Humble + Nav2 + Gazebo simulation of a robot that visits a small list of 
 ## Waypoints (CSV)
 File: `src/follow_waypoints_pkg/resource/odom_waypoints.csv`
 ```
+(`x` ,  `y`)
 (-2.0, -1.0)
 ( 4.0, -1.8)
 ( 3.0,  1.7)
 ```
 Frame: `map`
 
-## Status Strings Emitted (by follower)
-`waitin`, `get target`, `moving`, `reached target` (published on `/nav2_status`). These appear in blockchain records.
+## Waypoint Follower Variants
+- `odom_follower.py`: Loads `odom_waypoints.csv`, sends each waypoint via `navigate_to_pose`, publishes status transitions on `/nav2_status` (`waitin`, `get target`, `moving`, `reached target`), and cancels early once within 0.20 m to speed progression.
+- `go_through_poses.py`: Loads same CSV, sends a single `navigate_through_poses` goal (no intermediate status publishing). Lets Nav2 handle internal sequencing.
+- `gps_follower.py`: Loads `gps_waypoints.csv`, scales latitude/longitude to map x/y with fixed divisors (placeholder), sends sequential `navigate_to_pose` goals (no status publisher).
+
+Only the odometry sequential variant produces the status strings consumed by the blockchain logger.
 
 ## Topics / Actions Used
 - `/odom` (nav_msgs/Odometry) consumed by logger.
 - `/nav2_status` (std_msgs/String) produced by follower, consumed by logger.
-- Action `navigate_to_pose` (Nav2 NavigateToPose) used by waypoint follower.
+- Action `navigate_to_pose` (Nav2 NavigateToPose) used by sequential and GPS followers.
+- Action `navigate_through_poses` (Nav2 NavigateThroughPoses) used by batch follower.
 - `/amcl_pose` used by follower to approximate position for early goal completion (0.20 m tolerance).
 
 ## Launch Details
@@ -43,15 +58,16 @@ Frame: `map`
 
 ## Ganache Settings (from `run.sh`)
 ```
---port 8545
---deterministic
---networkId 1337
---gasLimit 10000000
---gasPrice 20000000000
---accounts 10
---defaultBalanceEther 100
---blockTime 15
---db blockchain_data/
+ganache-cli \
+    --port 8545 \
+    --deterministic \
+    --networkId 1337 \
+    --gasLimit 10000000 \
+    --gasPrice 20000000000 \
+    --accounts 10 \
+    --defaultBalanceEther 100 \
+    --blockTime 15 \
+    --db blockchain_data
 ```
 First account (`accounts[0]`) is used as both `from` and `to`.
 
@@ -127,3 +143,17 @@ python Tools/extract_blockchain_data.py
 - Visualization: RViz config `rviz/display.rviz` (launched automatically).
 - Blockchain: Ganache local chain, self transactions store JSON.
 
+## Extra Visualization
+After a run you can generate a simple static plot (map + path + waypoints + start/end):
+```bash
+python Tools/vizualization.py
+```
+Output image: `records/path_plot.png`.
+
+### Sample Output
+![Path plot](records/path_plot.png)
+
+## Additional Docs
+See `docs/waypoint_follower.md` for a concise breakdown of the three follower nodes.
+See `docs/blockchain_logger.md` for details on the logging and blockchain integration.
+See `docs/simulation.md` for an overview of the simulation setup and launch sequence.

@@ -7,5 +7,4 @@
 !/blockchain_data/blockchain_data
 /records/*
 !/records/records
-
-
+!/records/path_plot.png
