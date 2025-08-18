@@ -3,6 +3,7 @@
 from web3 import Web3
 import json
 from datetime import datetime
+import os
 
 def extract_blockchain_data():
     """Extract and save robot movement data from blockchain"""
@@ -57,7 +58,8 @@ def extract_blockchain_data():
                                 
                                 print(f"🔗 Block {block_num}: {tx_hash.hex()[:10]}...")
                                 print(f"   📅 {movement_entry['human_time']}")
-                                print(f"   🔵 robot: ({movement_data['robot']['x']}, {movement_data['robot']['y']})")
+                                print(f"   🔵 robot: ({movement_data['robot']['x']}, {movement_data['robot']['y']})", {movement_data['robot']['status']})
+                                print(f"   📦 transaction_data size (bytes): {len(json.dumps(movement_data).encode('utf-8'))}")
                                 print()
                                 
                             except Exception as decode_error:
@@ -76,10 +78,12 @@ def extract_blockchain_data():
         print(f"📈 Successfully extracted {len(movements)} movement records!")
         
         # Save to file
-        with open('records/decoded_blockchain_logs.json', 'w') as f:
+        file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'records', 'decoded_blockchain_logs.json')
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        with open(file_path, 'w') as f:
             json.dump(movements, f, indent=2)
 
-        print(f"💾 Data saved to: records/decoded_blockchain_logs.json")
+        print(f"💾 Decoded logs saved to: {file_path}")
 
         # Create a summary
         if movements:

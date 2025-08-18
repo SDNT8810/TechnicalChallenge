@@ -14,14 +14,18 @@ rm -r -f build log install
 
 colcon build
 
-# Minimal Ganache prep: ensure dir exists & drop stale LOCK if present
-GANACHE_DB_DIR="./blockchain_data"
+SCRIPT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+GANACHE_DB_DIR="$SCRIPT_DIR/blockchain_data"
+export GANACHE_DB_DIR
+
+# Minimal Ganache prep: ensure dir exists & drop stale LOCK if present (now absolute path)
 mkdir -p "$GANACHE_DB_DIR"
 pkill -f ganache-cli 2>/dev/null || true
 [ -f "$GANACHE_DB_DIR/LOCK" ] && rm -f "$GANACHE_DB_DIR/LOCK"
 
 # terminal 1:
-gnome-terminal -- bash -c '
+gnome-terminal --working-directory="$SCRIPT_DIR" -- bash -c '
+echo "Starting Ganache with persistent DB at: $GANACHE_DB_DIR"
 NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" 2>/dev/null
 command -v nvm >/dev/null && nvm use 18 >/dev/null 2>&1 || true
 
@@ -31,7 +35,7 @@ else
 	GANACHE_RUN="npx ganache-cli"
 fi
 
-$GANACHE_RUN \
+"$GANACHE_RUN" \
 	--port 8545 --deterministic --networkId 1337 \
 	--gasLimit 10000000 --gasPrice 20000000000 \
 	--accounts 10 --defaultBalanceEther 100 \
@@ -47,5 +51,11 @@ sleep 6
 
 python Tools/blockchain_logger.py &
 
+sleep 1
+
 # terminal 3:
 gnome-terminal -- bash -c "source install/setup.bash && ros2 run follow_waypoints_pkg odom_follower; exec bash" &
+
+sleep 10
+
+python Tools/extract_blockchain_data.py &

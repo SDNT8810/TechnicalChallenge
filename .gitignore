@@ -5,5 +5,6 @@
 /install
 /blockchain_data/*
 !/blockchain_data/blockchain_data
-/records/decoded_blockchain_logs.json
+/records/*
+!/records/records
 

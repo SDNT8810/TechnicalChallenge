@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
@@ -120,9 +121,10 @@ class BlockchainLogger(Node):
                 'status': self.robot_status
             }
         }
-        
-        with open('/home/sdnt/Desktop/copilot/movement_log.json', 'a') as f:
-            f.write(json.dumps(log_data) + '\n')
+        file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'records', 'movement_log.json')
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        with open(file_path, 'a') as f:
+            json.dump(log_data, f, indent=2)
 
         self.get_logger().info(f"📁 Logged to file: robot({log_data['robot']['x']}, {log_data['robot']['y']}), Status: {log_data['robot']['status']})")
 
