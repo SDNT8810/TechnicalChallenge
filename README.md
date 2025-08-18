@@ -2,13 +2,6 @@
 
 ROS 2 Humble + Nav2 + Gazebo simulation of a robot that visits a small list of waypoints. Position + simple status string are written to a local Ganache blockchain (self transactions carrying JSON). A script later walks the chain and rebuilds a JSON log.
 
-### Demo Video
-`demo.webm` (recorded run):
-<video src="records/demo.webm" controls loop muted style="max-width:100%;height:auto;">
-Your browser does not support the video tag.
-</video>
-
-
 ## Main Pieces
 | Area | File / Path | Purpose |
 |------|-------------|---------|
@@ -152,6 +145,12 @@ Output image: `records/path_plot.png`.
 
 ### Sample Output
 ![Path plot](records/path_plot.png)
+
+### Demo Video
+`demo.webm` (recorded run):
+<video src="records/demo.webm" controls loop muted style="max-width:100%;height:auto;">
+Your browser does not support the video tag.
+</video>
 
 ## Additional Docs
 See `docs/waypoint_follower.md` for a concise breakdown of the three follower nodes.

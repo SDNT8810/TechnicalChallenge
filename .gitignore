@@ -5,6 +5,4 @@
 /install
 /blockchain_data/*
 !/blockchain_data/blockchain_data
-/records/*
-!/records/records
-!/records/path_plot.png
+/records/decoded_blockchain_logs.json
